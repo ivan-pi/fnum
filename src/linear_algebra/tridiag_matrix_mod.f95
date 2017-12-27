@@ -9,9 +9,16 @@ module tridiag_matrix_mod
     public :: thomas, solve, transpose, size, allocated
     public :: operator(*), operator(.T.)
 
+    integer, parameter :: ZERO_PIVOT = -1
+
 !>  A tridiagonal matrix type.
 !
-!
+!###Examples
+!```fortran
+!type(tridiag_matrix) :: T
+!T=tridiag_matrix(100,1._wp,4._wp,1._wp) ! initialize the matrix
+!call T%free
+!```
     type :: tridiag_matrix
         private
         integer :: n = 0    !! The size of the matrix (length of the main diagonal).
@@ -27,11 +34,13 @@ module tridiag_matrix_mod
         procedure :: upper => tridiag_upper             !! Accessor function of the upper diagonal.
         procedure :: size => tridiag_size               !! Accessor function for the size.
         procedure :: allocated => tridiag_allocated     !! Check if the TDM is allocated.
+        procedure :: allocate => tridiag_allocate       !! Allocate the tridiagonal matrix.
         procedure :: set_lower => tridiag_set_lower     !! Set the lower diagonal.
         procedure :: set_main => tridiag_set_main       !! Set the main diagonal.
         procedure :: set_upper => tridiag_set_upper     !! Set the upper diagonal.
         procedure :: transpose => tridiag_transpose     !! Return the transpose.
-        procedure :: allocate => tridiag_allocate       !! Allocate the tridiagonal matrix.
+        ! procedure, private :: assign_tridiag
+        ! generic :: assignment(=) => assign_tridiag
     end type
 
 
@@ -60,7 +69,7 @@ module tridiag_matrix_mod
         module procedure tridiag_by_scalar
     end interface
 
-
+    !> Solve function
     interface solve
         module procedure tridiag_solve
     end interface
@@ -75,6 +84,19 @@ module tridiag_matrix_mod
 
 contains
 
+! !>  Assign new tridiagonal matrix to another
+!     subroutine assign_tridiag(lhs,rhs)
+!         class(tridiag_matrix), intent(inout) :: lhs
+!         class(tridiag_matrix), intent(in) :: rhs
+!         type(tridiag_matrix), allocatable :: local
+!         select type(rhs)
+!             type is (tridiag_matrix)
+!                 allocate(local,source=rhs)
+!                 call move_alloc(local,lhs)
+!             class default
+!                 print *, "[tridiag] should not be here"
+!         end select
+!     end subroutine
 
 !>  Returns the transpose of a tridiagonal matrix
     pure function tridiag_transpose(T) result(S)
@@ -443,7 +465,7 @@ contains
         tol = epsilon(1.0_wp)
 
         if (abs(ma(1)) <= tol) then
-            iflag = -1  ! Zero in first row!
+            iflag = ZERO_PIVOT  ! Zero in first row!
             return
         end if
 
@@ -454,7 +476,7 @@ contains
             temp(i) = up(i-1)/denom
             denom = ma(i) - lo(i)*temp(i)
             if (abs(denom) <= tol) then
-                iflag = -1 ! Zero pivot!
+                iflag = ZERO_PIVOT ! Zero pivot!
                 return
             end if
             x(i) = (rhs(i) - lo(i)*x(i-1))/denom
@@ -464,7 +486,5 @@ contains
         do i = n - 1, 1, -1
             x(i) = x(i) - temp(i+1)*x(i+1)
         end do
-
-
     end subroutine
 end module
