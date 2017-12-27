@@ -546,7 +546,7 @@ contains
         cond1 = .true.
         cond2 = .false.
         call assert_true(cond1)
-        call assert_false(.not. cond2)
+        call assert_false(.not.  cond2)
     end subroutine
 end module
 
