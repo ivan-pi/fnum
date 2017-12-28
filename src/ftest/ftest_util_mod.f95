@@ -155,7 +155,12 @@ module ftest
     public :: assert_equal, &
               assert_not_equal, &
               assert_true, &
-              assert_false
+              assert_false, &
+              assert_equivalent, &
+              assert_lt, &
+              assert_gt, &
+              assert_lte, &
+              assert_gte
 
     ! Test 
     public :: test 
@@ -183,11 +188,33 @@ module ftest
     interface assert_equal
         module procedure assert_equal_integer
         module procedure assert_equal_logical
+        module procedure assert_equal_string
     end interface
 
     interface assert_not_equal
         module procedure assert_not_equal_integer
         module procedure assert_not_equal_logical
+        module procedure assert_not_equal_string
+    end interface
+
+    interface assert_equivalent
+        module procedure assert_equal_logical
+    end interface
+
+    interface assert_lt
+        module procedure assert_lt_integer
+    end interface
+
+    interface assert_gt
+        module procedure assert_gt_integer
+    end interface
+
+    interface assert_lte
+        module procedure assert_lte_integer
+    end interface
+
+    interface assert_gte
+        module procedure assert_gte_integer
     end interface
 
 contains
@@ -236,6 +263,7 @@ contains
 
         if (call_final) then
             call ftest_finish(tests_failed_)
+            call ftest_remove_file(TEST_FILE)
             if (present(tests_failed)) tests_failed = tests_failed_
         endif
     end subroutine
@@ -275,16 +303,16 @@ contains
         close(unit)
 
         ! Run the test
-        write( *,fmt='(2a)',advance="no") 'Running test: ', trim(tname)
+        write( *,fmt='(2a)') 'Running test: ', trim(tname)
         
         call tcase ! Hopefully the program doesn't chrash here...
 
         if (nfailure > init_nfailure) then
             failed_tests = failed_tests + 1
-            write(*,*) 'test failed'
+            write(*,*) red_('FAILED')
         else
             successful_tests = successful_tests + 1
-            write(*,*) 'test passed'
+            write(*,*) green_('PASSED')
         end if
 
         ! Record results
@@ -304,16 +332,92 @@ contains
     end subroutine
 
 
+    subroutine ftest_finish(tests_failed)
+        logical, intent(out), optional :: tests_failed
+        write(STDOUT,*)
+        write(STDOUT,*)
+        write(STDOUT,*) '-- Start of ftest summary --'
+        write(STDOUT,*)
+        
+
+        if (failed_tests > 0) then
+           write(STDOUT,*) red_('Some tests failed!')
+           if (present(tests_failed)) tests_failed = .true.
+        else
+           write(STDOUT,*) green_('ALL TESTS WERE SUCCESSFUL!')
+           if (present(tests_failed)) tests_failed = .false.
+        end if
+        write (STDOUT,*)
+
+        if (nfailure + nsuccess /= 0) then
+            call ftest_summary_(nsuccess,nfailure,successful_tests,failed_tests)
+        end if
+        write(STDOUT,*)
+        write(STDOUT,*) '-- End of ftest summary --'
+    end subroutine
+
+    function green_(text)
+        character(len=*), intent(in) :: text
+        character(len=len(text)+15) :: green_ 
+
+        green_ = char(27)//'[32m'//text//char(27)//'[0m'
+    end function
+
+    function red_(text)
+        character(len=*), intent(in) :: text
+        character(len=len(text)+15) :: red_ 
+
+        red_ = char(27)//'[31m'//text//char(27)//'[0m'
+    end function
+
+    subroutine ftest_summary_(succ_assert,fail_assert,succ_case,fail_case)
+        integer, intent(in) :: succ_assert
+        integer, intent(in) :: fail_assert
+        integer, intent(in) :: succ_case
+        integer, intent(in) :: fail_case
+
+        write(*,*) 'Total number of asserts :   ', succ_assert + fail_assert
+        write(*,*) 'Successful asserts      :   ', succ_assert
+        write(*,*) 'Failed asserts          :   ', fail_assert
+        write(*,*) 'Successful asserts / total asserts : ', succ_assert, '/', succ_assert + fail_assert
+
+        write(*,*)
+        write(*,*) 'Total number of cases   :   ', succ_case + fail_case
+        write(*,*) 'Successful test cases   :   ', succ_case
+        write(*,*) 'Failed test cases       :   ', fail_case
+        write(*,*) 'Successful cases   / total cases   : ', succ_case, '/', succ_case + fail_case
+    end subroutine
+
+
+    subroutine ftest_remove_file( filename )
+        character(len=*), intent(in) :: filename
+
+        integer                      :: unit
+        integer                      :: ierr
+
+        open(newunit=unit,file=filename,iostat=ierr)
+        if (ierr/=0) then
+            write(*,*) '    Could not open file for removal: ', trim(filename)
+        else
+            close(unit,status='delete')
+            if (file_exists_(filename)) then
+                write(*,*) '    Removal of file unsuccssful: ', trim(filename)
+            endif
+        endif
+    end subroutine
+
+
 !== ASSERTIONS =================================================================
 
 !>  Asserts if two integers ARE equal.
-    subroutine assert_equal_integer(ia,ib,text)
-        integer, intent(in) :: ia
-        integer, intent(in) :: ib
+    subroutine assert_equal_integer(a,b,text)
+        integer, intent(in) :: a
+        integer, intent(in) :: b
         character(len=*), intent(in), optional :: text
 
-        if (.not. equal(ia,ib)) then
+        if (.not. equal(a,b)) then
             call fail_
+            write(STDOUT,'(a,i5,a,i5,a)') red_('[assert_equal_integer]')//' Expected ', a,', found ', b, ". "//text
         else
             call success_
         end if
@@ -321,13 +425,14 @@ contains
 
 
 !>  Asserts if two integers are NOT equal.
-    subroutine assert_not_equal_integer(ia,ib,text)
-        integer, intent(in) :: ia
-        integer, intent(in) :: ib
+    subroutine assert_not_equal_integer(a,b,text)
+        integer, intent(in) :: a
+        integer, intent(in) :: b
         character(len=*), intent(in), optional :: text
 
-        if (equal(ia,ib)) then
+        if (equal(a,b)) then
             call fail_
+            write(STDOUT,'(a,i5,a,i5,a)') red_('[assert_not_equal_integer]')//' Expected ', a,', found ', b, ". "//text
         else
             call success_
         end if
@@ -335,13 +440,14 @@ contains
 
 
 !>  Asserts if two booleans ARE equal.
-    subroutine assert_equal_logical(la,lb,text)
-        logical, intent(in) :: la
-        logical, intent(in) :: lb
+    subroutine assert_equal_logical(a,b,text)
+        logical, intent(in) :: a
+        logical, intent(in) :: b
         character(len=*), intent(in), optional :: text
  
-        if (.not.equal(la,lb)) then
+        if (.not.equal(a,b)) then
             call fail_
+            write(STDOUT,'(a,l1,a,l1,a)') red_('[assert_equal_logical]')//' Expected ', a,', found ', b, ". "//text
         else
             call success_
         end if
@@ -349,12 +455,39 @@ contains
 
 
 !>  Asserts if two booleans are NOT equal.
-    subroutine assert_not_equal_logical(la,lb,text)
-        logical, intent(in) :: la
-        logical, intent(in) :: lb
+    subroutine assert_not_equal_logical(a,b,text)
+        logical, intent(in) :: a
+        logical, intent(in) :: b
         character(len=*), intent(in), optional :: text
 
-        if (equal(la,lb)) then
+        if (equal(a,b)) then
+            call fail_
+            write(STDOUT,'(a,l1,a,l1,a)') red_('[assert_not_equal_logical]')//' Expected ', a,', found ', b, ". "//text
+        else
+            call success_
+        end if
+    end subroutine
+
+!>  Asserts if two strings ARE equal.
+    subroutine assert_equal_string(a,b,text)
+        character(len=*), intent(in) :: a
+        character(len=*), intent(in) :: b
+        character(len=*), intent(in), optional :: text
+
+        if (.not. equal(a,b)) then
+            call fail_
+        else
+            call success_
+        end if
+    end subroutine
+
+!>  Asserts if two strings are NOT equal.
+    subroutine assert_not_equal_string(a,b,text)
+        character(len=*), intent(in) :: a
+        character(len=*), intent(in) :: b
+        character(len=*), intent(in), optional :: text
+
+        if (equal(a,b)) then
             call fail_
         else
             call success_
@@ -368,7 +501,8 @@ contains
         character(len=*), intent(in), optional :: text
     
         if (.not. condition) then
-            call fail_            
+            call fail_
+            write(STDOUT,'(a,l1,a)') red_('[assert_true]')//' Expected T, found ', condition, ". "//text        
         else
             call success_
         end if
@@ -382,10 +516,46 @@ contains
 
         if (condition) then
             call fail_
-            write(*,*) "[assert_false] Expected ",.false.," got ", .true.          
+            write(STDOUT,'(a,l1,a)') red_('[assert_true]')//' Expected F, found ', condition, ". "//text
         else
             call success_
         end if
+    end subroutine
+
+!>  Assert an integer is lower than another integer.
+    subroutine assert_lt_integer(a,b,text)
+        integer, intent(in) :: a
+        integer, intent(in) :: b
+        character(len=*), intent(in), optional :: text
+        
+        call assert_true(a < b,text)
+    end subroutine
+
+!>  Assert an integer is greater than another integer.
+    subroutine assert_gt_integer(a,b,text)
+        integer, intent(in) :: a
+        integer, intent(in) :: b
+        character(len=*), intent(in), optional :: text
+        
+        call assert_true(a > b,text)
+    end subroutine
+
+!>  Assert an integer is lower than or equal to another integer.
+    subroutine assert_lte_integer(a,b,text)
+        integer, intent(in) :: a
+        integer, intent(in) :: b
+        character(len=*), intent(in), optional :: text
+        
+        call assert_true(a <= b,text)
+    end subroutine
+
+!>  Assert an integer is greater than or equal to another integer.
+    subroutine assert_gte_integer(a,b,text)
+        integer, intent(in) :: a
+        integer, intent(in) :: b
+        character(len=*), intent(in), optional :: text
+        
+        call assert_true(a >= b,text)
     end subroutine
 
 !== END ASSERTIONS =============================================================
@@ -400,9 +570,6 @@ contains
     subroutine success_
         nsuccess = nsuccess + 1
     end subroutine
-
-
-
 
 !>  Asserts a given condition and prints the result.
 !   
@@ -459,7 +626,7 @@ contains
                 nfailure = nfailure + 1
             endif
         end do
-        
+
         write(unit=STDOUT,fmt='(a,i3,a)')'Ran a total of ',ntests,' tests.'
         write(unit=STDOUT,fmt='(i3,a,i3,a)') nsuccess,' tests PASSED, ',&
                                              nfailure,' tests FAILED.'
@@ -469,45 +636,7 @@ contains
         endif
     end subroutine
 
-    subroutine ftest_finish(tests_failed)
-        logical, intent(out), optional :: tests_failed
-        write(*,*)
-        write(*,*)
-        write(*,*) '-- Start of ftest summary --'
-        write(*,*)
-        
 
-        if (failed_tests > 0) then
-           write (stdout,*) 'Some tests failed!'
-           if (present(tests_failed)) tests_failed = .true.
-        else
-           write (stdout,*) 'ALL TESTS WERE SUCCESSFUL!'
-           if (present(tests_failed)) tests_failed = .false.
-        end if
-
-        if (nfailure + nsuccess /= 0) then
-            call ftest_summary_(nsuccess,nfailure,successful_tests,failed_tests)
-        end if
-        write(*,*) '-- End of ftest summary --'
-    end subroutine
-    
-    subroutine ftest_summary_(succ_assert,fail_assert,succ_case,fail_case)
-        integer, intent(in) :: succ_assert
-        integer, intent(in) :: fail_assert
-        integer, intent(in) :: succ_case
-        integer, intent(in) :: fail_case
-
-        write(*,*) 'Total number of asserts :   ', succ_assert + fail_assert
-        write(*,*) 'Successful asserts      :   ', succ_assert
-        write(*,*) 'Failed asserts          :   ', fail_assert
-        write(*,*) 'Successful asserts / total asserts : ', succ_assert, '/', succ_assert + fail_assert
-
-        write(*,*)
-        write(*,*) 'Total number of cases   :   ', succ_case + fail_case
-        write(*,*) 'Successful test cases   :   ', succ_case
-        write(*,*) 'Failed test cases       :   ', fail_case
-        write(*,*) 'Successful cases   / total cases   : ', succ_case, '/', succ_case + fail_case
-    end subroutine
 
 end module
 
@@ -530,23 +659,23 @@ contains
 
     subroutine bogus_integer
         integer :: a = 2
-        integer :: b = 2
-        call assert_equal(a,b)
+        integer :: b = 3
+        call assert_equal(a,b, "hi ivan")
     end subroutine
 
     subroutine bogus_logical
         logical :: a = .true.
         logical :: b = .false.
         call assert_equal(a,b,"This should fail!")
-        call assert_not_equal(a,b)
+        ! call assert_not_equal(a,b)
     end subroutine
 
     subroutine bogus_condition
         logical :: cond1, cond2
-        cond1 = .true.
+        cond1 = .false.
         cond2 = .false.
         call assert_true(cond1)
-        call assert_false(.not.  cond2)
+        call assert_false(cond2)
     end subroutine
 end module
 
