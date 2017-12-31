@@ -1,6 +1,6 @@
 module tridiag_test_mod
-    use precision_mod, only: wp
-    use tridiagonal_matrix_mod
+    use precision, only: wp
+    use tridiag_matrix_mod, only: tridiag_matrix
     implicit none
 
     private

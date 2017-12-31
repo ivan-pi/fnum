@@ -1,3 +1,19 @@
+
+!>  The `ftest` module is a KISS tool for unit testing of
+!   Fortran programs. The module provides a series of 
+!   assertion functions and a series of routines to set up
+!   tests.
+!
+!   The structure of this module is almost entirely based upon
+!   the "ftnunit" framework by Arjen Markus. It is also loosely based
+!   upon the FRUIT testing framework and a series of tests in the
+!   "functional-fortran" module.
+!
+!### References
+! * http://flibs.sourceforge.net/ftnunit.html
+! * https://github.com/wavebitscientific/functional-fortran
+! * https://sourceforge.net/projects/fortranxunit/
+
 module ftest
 
     use ftest_util_mod, only: equal
