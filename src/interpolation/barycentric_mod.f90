@@ -11,17 +11,18 @@ module barycentric_mod
     public :: barycentric_interpolant
 
     type :: barycentric_interpolant
-        integer :: n
+        integer :: n = 0
         real(wp), allocatable :: x(:)
         real(wp), allocatable :: y(:)
-        real(wp), allocatable :: w(:)    
+        real(wp), allocatable :: w(:)
+        logical :: alloc = .false.    
     contains
-        ! procedure :: val
+        procedure :: dx => der_matrix
     end type
 
     interface barycentric_interpolant
         module procedure new_barycentric_interpolant
-        module procedure new_barycentric_interpolant_wrapper
+        module procedure new_barycentric_interpolant_implicit
     end interface
 
     interface barycentric_val
@@ -42,10 +43,11 @@ contains
         this%x = x
         this%y = y
         this%w = barycentric_weights(n,x,y)
+        this%alloc = .true.
     end function
 
 
-    pure function new_barycentric_interpolant_wrapper(x,y) result(this)
+    pure function new_barycentric_interpolant_implicit(x,y) result(this)
         real(wp), intent(in) :: x(:)
         real(wp), intent(in) :: y(:)
         type(barycentric_interpolant) :: this
@@ -56,7 +58,7 @@ contains
         this = new_barycentric_interpolant(n,x(1:n),y(1:n))
     end function
 
-    
+
     pure function barycentric_weights(n,x,y) result(w)
         integer, intent(in) :: n
         real(wp), intent(in) :: x(n)
@@ -173,6 +175,30 @@ contains
         pf = dot_product(l,y)        
     end function
 
+    function der_matrix(this,d) result(M)
+        class(barycentric_interpolant), intent(in) :: this
+        integer, intent(in) :: d
+
+        real(wp) :: M(this%n,this%n), xdiff
+        integer :: i, j
+
+        M = 0
+        select case(d)
+        case(1)
+        do i = 1, this%n
+            do j = 1,this%n
+                xdiff = this%x(i) - this%x(j)
+                if (j == i) cycle
+                M(i,j) = this%w(j)/(this%w(i)*xdiff)
+            end do
+            M(i,i) = -sum(M(i,:))
+        end do
+        case(2)
+            print *, "not implemented yet"
+        case default
+            print *, "should not be here"
+        end select
+    end function
 end module
 
 
@@ -187,12 +213,15 @@ program test_barycentric
     integer, parameter :: n = 11
     integer :: i
 
-    real(wp), allocatable :: x(:), y(:), w(:), a(:), x2(:), y2(:)
+    real(wp), allocatable :: x(:), y(:), w(:), a(:), x2(:), y2(:),yd(:)
+    type(barycentric_interpolant) :: b
 
     a = [1._wp,2._wp,3._wp]
 
     x = [(real(i-1,wp)*0.1_wp,i=1,n)]
     y = polyval(a,x)
+
+    b = barycentric_interpolant(x,y)
 
     w = barycentric_weights(n,x,y)
 
@@ -205,7 +234,14 @@ program test_barycentric
 
     y2 = barycentric_val(n,x,y,w,x2)
 
+    yd = matmul(b%dx(1),y)
+
     do i = 1, 101
-        print *, x2(i), y2(i)
+        print *, x2(i), y2(i),yd(i)
+    end do
+    print *,
+    print *,
+    do i = 1, n
+        print *, x(i),y(i),yd(i)
     end do
 end program
