@@ -16,15 +16,19 @@ module interpolation_mod
     interface neville
         module procedure neville
         module procedure neville_err
+        module procedure neville_wrapper
     end interface
 contains
 
+!>  Evaluates a polynomial \(p(x)\) using Horner's method.
     pure function polyval(a,x) result(p)
-        ! integer, intent(in) :: n
-        real(wp), intent(in) :: a(:)
-        real(wp), intent(in) :: x
+        
+        ! PARAMETERS
+        real(wp), intent(in) :: a(:)    !! The coefficients of the polynomial.
+        real(wp), intent(in) :: x       !! The \(x\)-value at which we would like to evaluate the polynomial.
 
-        real(wp) :: p
+        ! RETURNS
+        real(wp) :: p       !! The value of the polynomial \(p(x)\).
 
         integer :: i
 
@@ -33,6 +37,7 @@ contains
             p = a(i) + p*x  
         end do
     end function
+
 
     pure function polyval_array(a,x) result(p)
         real(wp), intent(in) :: a(:)
@@ -64,7 +69,7 @@ contains
 !
 !### References
 ! https://s3.amazonaws.com/torkian/torkian/Site/Research/Entries/2008/2/29_Nevilles_algorithm_Java_Code.html
-    pure function neville(n,xi,yi,x) result(px)
+    pure function neville(n,xi,yi,x) result(y)
 
         ! PARAMETERS
         integer, intent(in) :: n        !! Number of interpolating points.
@@ -73,7 +78,7 @@ contains
         real(wp), intent(in) :: x       !! Abscissa at which to evaluate the interpolating polynomial.
 
         ! RETURNS
-        real(wp) :: px      !! The value of the polynomial at `x`.
+        real(wp) :: y      !! The value of the polynomial at `x`.
 
         ! Local variables
         real(wp) :: P(n), denom, a, b
@@ -91,9 +96,20 @@ contains
             end do
         end do
 
-        px = P(1)
+        y = P(1)
     end function
 
+    pure function neville_wrapper(xi,yi,x) result(y)
+        real(wp), intent(in) :: xi(:)
+        real(wp), intent(in) :: yi(:)
+        real(wp), intent(in) :: x
+
+        real(wp) :: y
+        integer :: n
+
+        n = min(size(xi),size(yi))
+        y = neville(n,xi(1:n),yi(1:n),x)
+    end function
 
     function neville_err(n,xi,yi,x,dy) result(y)
         integer, intent(in) :: n
@@ -182,53 +198,53 @@ contains
     end subroutine
 end module
 
-program test_poly
-    use interpolation_mod
+! program test_poly
+!     use interpolation_mod
 
-    implicit none
+!     implicit none
 
-    real(wp), allocatable :: a(:), x(:), y(:), xx(:)
-    real(wp) :: p, dy
+!     real(wp), allocatable :: a(:), x(:), y(:), xx(:)
+!     real(wp) :: p, dy
 
-    integer :: i
-    integer, parameter :: n = 11
+!     integer :: i
+!     integer, parameter :: n = 11
 
-    a = [1._wp,2._wp,3._wp,3.25_wp]
+!     a = [1._wp,2._wp,3._wp,3.25_wp]
 
-    p = polyval(a,0.5_wp)
+!     p = polyval(a,0.5_wp)
 
-    x = [(real(i-1,wp)*0.1_wp,i=1,n)]
+!     x = [(real(i-1,wp)*0.1_wp,i=1,n)]
 
-    y = polyval(a,x)
+!     y = polyval(a,x)
 
-    ! print *, a
-    ! print *, p, poly_stupid(a,0.5_wp), neville(size(x),x,y,0.5_wp)
+!     ! print *, a
+!     ! print *, p, poly_stupid(a,0.5_wp), neville(size(x),x,y,0.5_wp)
 
-    call polint(n,x,y,0.51_wp,p,dy)
-    ! print *, dy
-    print *, p, neville(n,x,y,0.51_wp), polyval(a,0.51_wp)
-    print *, dy
+!     call polint(n,x,y,0.51_wp,p,dy)
+!     ! print *, dy
+!     print *, p, neville(n,x,y,0.51_wp), polyval(a,0.51_wp)
+!     print *, dy
 
-    ! xx = linspace(0._wp,1._wp,100)
+!     ! xx = linspace(0._wp,1._wp,100)
 
-    ! do i = 1, 100
-    !     print *, xx(i), polyval(a,xx(i)), neville(11,x,y,xx(i))
-    ! end do
+!     ! do i = 1, 100
+!     !     print *, xx(i), polyval(a,xx(i)), neville(11,x,y,xx(i))
+!     ! end do
 
 
-contains
+! contains
 
-    function linspace(a,b,n)
-        real(wp), intent(in) :: a, b
-        integer, intent(in) :: n
+!     function linspace(a,b,n)
+!         real(wp), intent(in) :: a, b
+!         integer, intent(in) :: n
 
-        real(wp), allocatable :: linspace(:)
+!         real(wp), allocatable :: linspace(:)
 
-        real(wp) :: step
+!         real(wp) :: step
 
-        step = (b-a)/real(n-1,wp)
-        linspace = [(a + real(i-1,wp)*step,i=1,n)]
-    end function
-end program
+!         step = (b-a)/real(n-1,wp)
+!         linspace = [(a + real(i-1,wp)*step,i=1,n)]
+!     end function
+! end program
 
 
