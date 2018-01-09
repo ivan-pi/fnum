@@ -120,20 +120,23 @@ contains
         logical :: endpoint_
         real(wp) :: step_
 
-        num_ = from_optional(num,50)
+        ! Set number of samples
+        num_ = 50
+        if (present(num)) num_ = num
 
+        ! Set weather endpoint is included in points or not
         endpoint_ = .true.
         if (present(endpoint)) endpoint_ = endpoint
 
-        ! find step size
+        ! Find the step size
         if (endpoint_) then
             step_ = (end - start)/real(num_-1,wp)
         else
             step_ = (end - start)/real(num_,wp)
         end if
-
         if (present(step)) step = step_
 
+        ! Generate list of samples (note the automatic allocation)
         samples = [(start + real(i-1,wp)*step_, i = 1, num_)]
     end function linspace
 end module
