@@ -7,7 +7,7 @@ module fixed_point_mod
     implicit none
     private
 
-    public :: fixed_point, wp, user_function
+    public :: fixed_point, wp
 
     integer, parameter :: wp = kind(2.0d0) 
 
@@ -34,7 +34,7 @@ contains
     end function
 
 
-    pure real(wp) function lazywhere(cond,p,p0)
+    pure real(wp) function lazywhere_(cond,p,p0)
         logical, intent(in) :: cond
         real(wp), intent(in) :: p, p0
 
@@ -49,7 +49,7 @@ contains
     real(wp) function fixed_point(func,x0,xtol,maxiter,accel) result(p)
 
         interface
-            real(wp) function func(x)
+            pure real(wp) function func(x)
                 import :: wp
                 real(wp), intent(in) :: x
             end function
@@ -63,18 +63,20 @@ contains
         integer :: maxiter_, i
         logical :: accel_
 
+        ! default tolerance
         xtol_ = 1.0e-8_wp
         if (present(xtol)) xtol_ = xtol
 
+        ! default number of iterations
         maxiter_ = 400
         if (present(maxiter)) maxiter_ = maxiter
 
+        ! default convergence acceleration setting
         accel_ = .true.
         if (present(accel)) accel_ = accel
 
-
         p0 = x0
-
+        p = p0
 
         do i = 1, maxiter_
 
@@ -82,17 +84,18 @@ contains
             p1 = func(p0)
 
             if (accel_) then
+                ! accelerated
                 p2 = func(p1)
                 d = p2 - 2.0_wp*p1 + p0 ! calculate denominator
                 
-                p = lazywhere(d /= 0,del2_(p0,p1,d),p2)
+                p = lazywhere_(d /= 0,del2_(p0,p1,d),p2)
             else
+                ! normal
                 p = p1
             end if
 
-
             ! calculate relative error
-            relerr = lazywhere(p0 /= 0,relerr_(p,p0),p-p0)
+            relerr = lazywhere_(p0 /= 0,relerr_(p,p0),p-p0)
 
             ! check tolerance
             if (abs(relerr) < xtol_) then
@@ -102,6 +105,8 @@ contains
             p0 = p
 
         end do
+
+        print *, "[fixed_point] Failed to converge after ", maxiter_, "iterations, value is ", p
     end function
 
 
@@ -119,7 +124,7 @@ module myfunc_mod
 
 contains
 
-    real(wp) function myfunc(x)
+    pure real(wp) function myfunc(x)
         real(wp), intent(in) :: x
         myfunc = sqrt(10._wp/(x+4._wp))
     end function
@@ -143,5 +148,5 @@ program test_fixed_point
 !         real(wp), intent(in) :: x
 !         myfunc = sqrt(10._wp/(x+4._wp))
 !     end function
-    
+
 end program
